@@ -1327,6 +1327,23 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
       lista.forEach((m) => { res[m] = meses[m + suf] || meses[m + '|d']; });
       return res;
     }
+    // "Impressão digital" dos dados, para saber se algo mudou no banco (PDV, sócio, outro aparelho).
+    // A ordem das listas não importa, e o mês vale igual lido com ou sem detalhe de maquininha.
+    function canon(x) {
+      if (Array.isArray(x)) return '[' + x.map(canon).sort().join(',') + ']';
+      if (x && typeof x === 'object') return '{' + Object.keys(x).sort().map((k) => JSON.stringify(k) + ':' + canon(x[k])).join(',') + '}';
+      return JSON.stringify(x === undefined ? null : x);
+    }
+    function digitalMes(dm) {
+      dm = dm || {};
+      const v = {};
+      (dm.vendas || []).forEach(([data, origem, forma, , , bruto, taxa, qtd]) => {
+        const k = data + '|' + origem + '|' + forma;
+        const t = v[k] || (v[k] = [0, 0, 0]);
+        t[0] += Number(bruto) || 0; t[1] += Number(taxa) || 0; t[2] += Number(qtd) || 0;
+      });
+      return canon({ v, d: dm.despesas || [], p: dm.pdv || [] });
+    }
     function saldoInformado(b, mes) { const v = (b.meses || {})[mes]; return v === undefined ? null : v; }
 
     async function resumoDe(mes, detalhe) {
@@ -1357,6 +1374,21 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
           taxas: { credito: Number(cfg.taxaCredito), debito: Number(cfg.taxaDebito), voucher: Number(cfg.taxaVoucher), pix: Number(cfg.taxaPix) },
           nomesMaquininhas: nomes, pdvLigado: !!(b.pdv && b.pdv.quantos),
         };
+      },
+      /** Confere, sem tela de carregando, se chegou algo novo no banco. Se chegou, troca a memória e devolve true. */
+      async novidades(d) {
+        const mes = d && ehMes(d.mes) ? d.mes : null;
+        if (!base) return false;
+        const vazio = { vendas: [], despesas: [], pdv: [] };
+        const [b, r] = await Promise.all([db.rpc('base', {}), mes ? db.rpc('dados_meses', { p_meses: [mes], p_detalhe: false }) : Promise.resolve({})]);
+        const naMemoria = mes ? (meses[mes + '|d'] || meses[mes + '|r']) : null;
+        let mudou = !base || canon(b) !== canon(base);
+        if (!mudou && naMemoria) mudou = digitalMes(naMemoria) !== digitalMes(r[mes] || vazio);
+        if (!mudou) return false;
+        limpar();
+        base = b;
+        if (mes) meses[mes + '|r'] = r[mes] || vazio;
+        return true;
       },
       async resumoMes(d) {
         if (!ehMes(d.mes)) throw erro('Mês inválido.');
@@ -1887,21 +1919,40 @@ $('#mes').onchange = () => { est.mes = $('#mes').value; carregarMes(); };
 $('#mes-ant').onclick = () => { est.mes = deslocarMes(est.mes, -1); carregarMes(); };
 $('#mes-prox').onclick = () => { est.mes = deslocarMes(est.mes, 1); carregarMes(); };
 
-async function carregarMes(primeira) {
+async function carregarMes(primeira, silencio) {
+  const opc = { silencio: !!silencio };
   try {
-    est.resumo = await api('resumoMes', { mes: est.mes });
+    est.resumo = await api('resumoMes', { mes: est.mes }, opc);
     // na primeira vez, se o mês atual está vazio, abre o último mês com dados
     if (primeira && !est.resumo.dias.length && est.resumo.mesesComDados.length) {
       est.mes = est.resumo.mesesComDados[0];
-      est.resumo = await api('resumoMes', { mes: est.mes });
+      est.resumo = await api('resumoMes', { mes: est.mes }, opc);
     }
     $('#mes').innerHTML = mesesParaSelect().map((m) => `<option value="${m}">${esc(nomeMes(m))}</option>`).join('');
     $('#mes').value = est.mes;
     desenharPainel(); desenharDias();
-    if (est.pagina === 'despesas') carregarDespesas();
-    carregarComparacao();
-  } catch (e) { toast(e.message, 'erro'); }
+    if (est.pagina === 'despesas') carregarDespesas(silencio);
+    carregarComparacao(silencio);
+  } catch (e) { if (!silencio) toast(e.message, 'erro'); }
 }
+
+// ------------------------------------------------------------- dados novos (PDV, sócio, outro aparelho)
+// A cada minuto, com a aba aberta e visível, confere se chegou algo novo e redesenha sozinho.
+let conferindo = false, ultimaConferencia = 0;
+async function conferirNovidades() {
+  if (conferindo || !est.usuario || !est.mes || document.visibilityState !== 'visible') return;
+  if (!$('#modal-fundo').classList.contains('oculto') || (est.sel && est.sel.size)) return; // não mexe na tela no meio de uma edição
+  conferindo = true; ultimaConferencia = Date.now();
+  try {
+    if (await api('novidades', { mes: est.mes }, { silencio: true })) {
+      await carregarMes(false, true);
+      toast('🔄 Chegaram dados novos — tela atualizada.', 'ok');
+    }
+  } catch (e) { /* sem internet: tenta de novo no próximo minuto */ } finally { conferindo = false; }
+}
+setInterval(conferirNovidades, 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - ultimaConferencia > 15000) conferirNovidades(); });
+window.addEventListener('focus', () => { if (Date.now() - ultimaConferencia > 15000) conferirNovidades(); });
 
 // ------------------------------------------------------------- painel
 function desenharPainel() {
@@ -2144,15 +2195,15 @@ function deltaHtml(a, b, subirEhBom) {
 }
 
 let reqComp = 0;
-async function carregarComparacao() {
+async function carregarComparacao(silencio) {
   const meu = ++reqComp;
   montarSelectComparacao();
   const comp = mesComparado();
   try {
-    const r = await api('comparar', { mes: est.mes, comp: comp || '', meses: 12 });
+    const r = await api('comparar', { mes: est.mes, comp: comp || '', meses: 12 }, { silencio: !!silencio });
     if (meu !== reqComp) return;
     est.comp = { mes: comp, dados: r.comparacao, historico: r.historico };
-  } catch (e) { if (meu === reqComp) { est.comp = null; toast(e.message, 'erro'); } }
+  } catch (e) { if (meu === reqComp) { est.comp = null; if (!silencio) toast(e.message, 'erro'); } }
   desenharComparacao();
 }
 function montarSelectComparacao() {
@@ -2642,8 +2693,8 @@ async function carregarHistorico() {
 }
 
 // ------------------------------------------------------------- despesas
-async function carregarDespesas() {
-  try { const r = await api('despesas', { mes: est.mes, comExcluidas: true }); est.despesas = r.lista; est.despExcluidas = r.excluidas; desenharDespesas(); } catch (e) { toast(e.message, 'erro'); }
+async function carregarDespesas(silencio) {
+  try { const r = await api('despesas', { mes: est.mes, comExcluidas: true }, { silencio: !!silencio }); est.despesas = r.lista; est.despExcluidas = r.excluidas; desenharDespesas(); } catch (e) { if (!silencio) toast(e.message, 'erro'); }
 }
 $('#d-busca').oninput = () => desenharDespesas();
 $('#d-origem').onchange = () => desenharDespesas();
