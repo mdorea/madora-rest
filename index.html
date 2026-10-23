@@ -1184,7 +1184,9 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
       d.totalBruto = FORMAS.reduce((s, f) => s + d.bruto[f], 0);
       if (d.pdv) { // conferência PDV × maquininhas
         d.diferencas = {};
-        ['credito', 'debito', 'pix', 'voucher'].forEach((f) => {
+        // cartão/Pix: só confere quando o extrato daquele dia já foi importado (antes disso, ainda falta o extrato)
+        const temExtrato = d.qtd > 0 || Object.keys(d.ajustado).length > 0;
+        if (temExtrato) ['credito', 'debito', 'pix', 'voucher'].forEach((f) => {
           const dif = d.bruto[f] - (d.pdv[f] || 0);
           if (Math.abs(dif) >= 1) d.diferencas[f] = dif;
         });
