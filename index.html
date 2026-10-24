@@ -239,11 +239,23 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
 /* despesas */
 .filtros { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .filtros .campo { width: auto; min-width: 190px; }
+.filtros .campo-data { min-width: 0; width: 150px; padding-top: 8px; padding-bottom: 8px; }
+.filtros .campo-valor { min-width: 0; width: 140px; }
+.filtro-rot { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--texto2); }
+.tab th.ord { cursor: pointer; user-select: none; }
+.tab th.ord:hover { color: var(--prim); }
+.tab th.ord .seta { font-size: .7rem; opacity: .35; margin-left: 4px; }
+.tab th.ord.ativa { color: var(--prim); }
+.tab th.ord.ativa .seta { opacity: 1; }
 .cat-sel { padding: 7px 9px; border-radius: 8px; border: 1.5px solid var(--borda); background: var(--sup); max-width: 220px; }
 .cat-sel.pendente { border-color: var(--pendente); background: var(--alerta-cla); }
 .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .chip { border: 1px solid var(--borda); background: var(--sup); border-radius: 99px; padding: 6px 14px; font-size: .86rem; }
 .chip.ativo { background: var(--prim); color: #fff; border-color: var(--prim); }
+.chip-btn { cursor: pointer; color: var(--texto); font: inherit; font-size: .86rem; }
+.chip-btn:hover { border-color: var(--prim); }
+.zona-perigo { margin-top: 14px; border: 1px solid var(--borda); border-radius: 12px; padding: 10px 14px; }
+.zona-perigo summary { cursor: pointer; font-weight: 600; color: var(--ruim); }
 
 /* modal e avisos rápidos */
 .modal-fundo { position: fixed; inset: 0; background: var(--veu); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
@@ -443,11 +455,18 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
         <div><h2>Fechamento diário</h2><div class="suave">O dinheiro vem do PDV; para corrigir, digite o valor e aperte Enter. Clique em um dia para ver o detalhe ou <b>editar qualquer valor</b> dele. Valores mudados à mão aparecem com ✎.</div></div>
         <button class="btn btn-prim" id="b-lancar-dia">＋ Lançar / editar um dia</button>
       </div>
+      <div class="filtros" id="fd-filtros">
+        <label class="filtro-rot">De <input type="date" id="fd-de" class="campo campo-data"></label>
+        <label class="filtro-rot">até <input type="date" id="fd-ate" class="campo campo-data"></label>
+        <select id="fd-semana" class="campo"><option value="">Todos os dias da semana</option><option>segunda</option><option>terça</option><option>quarta</option><option>quinta</option><option>sexta</option><option>sábado</option><option>domingo</option><option value="fds">Fim de semana</option><option value="util">Segunda a sexta</option></select>
+        <select id="fd-mostrar" class="campo"><option value="">Todos os dias</option><option value="venda">Com venda</option><option value="semvenda">Sem venda</option><option value="dif">Com diferença PDV × maquininhas</option><option value="desp">Com despesas</option><option value="manual">Mudados à mão</option></select>
+        <button class="btn btn-texto btn-peq oculto" id="fd-limpar">✕ Limpar filtros</button>
+      </div>
       <div class="linha suave peq" style="margin-bottom:8px" id="sel-atalhos">Selecionar:
         <button class="btn btn-texto btn-peq" data-sel="todos">todos</button>
         <button class="btn btn-texto btn-peq" data-sel="semvenda">sem venda</button>
         <button class="btn btn-texto btn-peq" data-sel="dif">com diferença</button>
-        <span>· dica: segure <b>Shift</b> e clique para marcar um intervalo de dias</span>
+        <span>· dica: segure <b>Shift</b> e clique para marcar um intervalo de dias · clique no título de uma coluna para ordenar</span>
       </div>
       <div class="sel-barra oculto" id="sel-barra">
         <b id="sel-txt"></b><span class="suave" id="sel-total"></span>
@@ -488,7 +507,13 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
       <div class="filtros">
         <input id="d-busca" class="campo" type="search" placeholder="🔎 Buscar fornecedor">
         <select id="d-origem" class="campo"><option value="">Todas as origens</option><option value="itau_conta">Conta Itaú</option><option value="stone_conta">Conta Stone</option><option value="manual">Lançadas à mão</option><option value="_excluidas">🗑️ Excluídas</option></select>
+        <label class="filtro-rot">De <input type="date" id="d-de" class="campo campo-data"></label>
+        <label class="filtro-rot">até <input type="date" id="d-ate" class="campo campo-data"></label>
+        <input id="d-vmin" class="campo campo-valor" inputmode="decimal" placeholder="Valor mín. R$">
+        <input id="d-vmax" class="campo campo-valor" inputmode="decimal" placeholder="Valor máx. R$">
+        <button class="btn btn-texto btn-peq oculto" id="d-limpar">✕ Limpar filtros</button>
       </div>
+      <div class="suave peq" id="d-info" style="margin:-6px 0 10px"></div>
       <div class="sel-barra oculto" id="d-sel-barra">
         <b id="d-sel-txt"></b><span class="suave" id="d-sel-total"></span>
         <span style="flex:1"></span>
@@ -544,6 +569,7 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
             <p class="suave peq">Dê um nome fácil para cada maquininha encontrada nos extratos.</p>
             <div id="cf-maqs"></div>
             <h3 style="margin-top:18px">Categorias</h3>
+            <p class="suave peq">Clique numa categoria para renomear, mudar se entra no resultado ou excluir.</p>
             <div id="cf-cats" class="chips"></div>
             <div class="linha"><input id="cf-nova-cat" class="campo" style="flex:1" placeholder="Nova categoria"><label class="chk" style="margin:0"><input type="checkbox" id="cf-nova-cat-fora"> fora do resultado</label><button class="btn btn-claro" id="b-nova-cat">Adicionar</button></div>
           </div>
@@ -1544,6 +1570,15 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
       },
       async salvarConfig(d) { await db.rpc('salvar_config', { p: d || {}, p_nav: nav() }); limpar(); return true; },
       async salvarCategoria(d) { await db.rpc('salvar_categoria', { p_nome: d.nome, p_no_resultado: d.noResultado !== false, p_nav: nav() }); limpar(); return true; },
+      async editarCategoria(d) {
+        const r = await db.rpc('editar_categoria', { p_antigo: d.antigo, p_novo: d.nome, p_no_resultado: d.noResultado !== false, p_nav: nav() });
+        limpar(); return r;
+      },
+      async excluirCategoria(d) {
+        const r = await db.rpc('excluir_categoria', { p_nome: d.nome, p_destino: d.destino || 'A classificar', p_nav: nav() });
+        limpar(); return r;
+      },
+      async contarCategorias() { return db.rpc('contar_categorias', {}); },
       async usuarios() { return db.rpc('usuarios', {}); },
       async salvarUsuario(d) {
         if (!d.id) {
@@ -1965,7 +2000,7 @@ function desenharPainel() {
   if (r.avisos.aClassificar) av.push(`<div class="aviso">⚠️ ${r.avisos.aClassificar} despesa(s) sem categoria <button class="btn btn-claro btn-peq" data-ir="despesas">Classificar</button></div>`);
   if (r.avisos.diasComDiferenca) av.push(`<div class="aviso">🔎 ${r.avisos.diasComDiferenca} dia(s) com diferença entre PDV e maquininhas <button class="btn btn-claro btn-peq" data-ir="dias">Ver</button></div>`);
   if (r.pdv.ligado && !r.pdv.ok) av.push(`<div class="aviso">❌ ${esc(r.pdv.erro || 'Não consegui ler a planilha do PDV.')}</div>`);
-  if (!r.pdv.ligado) av.push(`<div class="aviso info">ℹ️ PDV não ligado: o dinheiro precisa ser digitado no Fechamento diário.${est.usuario.papel === 'admin' ? ' Ligue em Administração › Configurações.' : ''}</div>`);
+  if (!r.pdv.ligado) av.push(`<div class="aviso info">ℹ️ Nenhuma venda do PDV no sistema ainda. Assim que o PDV vender, o dinheiro aparece aqui sozinho.${est.usuario.papel === 'admin' ? ' (Se o PDV já vendeu e nada apareceu, confira Administração › Configurações › Ligação com o PDV.)' : ''}</div>`);
   $('#p-avisos').innerHTML = av.join('');
   $$('[data-ir]', $('#p-avisos')).forEach((b) => b.onclick = () => irPara(b.dataset.ir));
 
@@ -2395,6 +2430,69 @@ function grafGrupos(caixa, rotulos, series, opc) {
 }
 
 // ------------------------------------------------------------- fechamento diário
+// ------------------------------------------------------------- ordenar e filtrar tabelas
+/** Cabeçalho clicável: <th> com seta. ord = { chave, dir } (dir 1 = crescente, -1 = decrescente) */
+function thOrd(rotulo, chave, ord, classe) {
+  const ativa = ord.chave === chave;
+  return `<th class="ord ${classe || ''}${ativa ? ' ativa' : ''}" data-ord="${chave}" title="Ordenar">${rotulo}<span class="seta">${ativa ? (ord.dir > 0 ? '▲' : '▼') : '▲▼'}</span></th>`;
+}
+function ligarOrdenacao(tab, ord, guardarEm, redesenhar) {
+  $$('th.ord', tab).forEach((th) => th.onclick = (e) => {
+    e.stopPropagation();
+    const c = th.dataset.ord;
+    if (ord.chave === c) ord.dir = -ord.dir;
+    else { ord.chave = c; ord.dir = c === 'data' || c === 'fornecedor' || c === 'categoria' || c === 'origem' ? 1 : -1; } // valores: maior primeiro
+    guardar(guardarEm, JSON.stringify(ord));
+    redesenhar();
+  });
+}
+function ordenarLista(lista, ord, valor) {
+  return lista.slice().sort((a, b) => {
+    const va = valor(a, ord.chave), vb = valor(b, ord.chave);
+    let r = typeof va === 'string' || typeof vb === 'string' ? String(va).localeCompare(String(vb), 'pt-BR') : (va || 0) - (vb || 0);
+    if (!r) r = String(a.data || '').localeCompare(String(b.data || ''));
+    return r * ord.dir;
+  });
+}
+function lerOrdem(chave, padrao) { try { const o = JSON.parse(pegar(chave) || 'null'); if (o && o.chave && (o.dir === 1 || o.dir === -1)) return o; } catch (e) { /* ignora */ } return Object.assign({}, padrao); }
+function reaisFiltro(t) { const v = lerReais(t); return v === null || Number.isNaN(v) ? null : v; }
+est.ordDias = lerOrdem('fm_ord_dias', { chave: 'data', dir: 1 });
+est.ordDesp = lerOrdem('fm_ord_desp', { chave: 'data', dir: 1 });
+
+/** Dias do mês que passam pelos filtros da aba Fechamento, já na ordem escolhida. */
+function diasVisiveis() {
+  const r = est.resumo;
+  if (!r) return [];
+  const de = $('#fd-de').value, ate = $('#fd-ate').value, sem = $('#fd-semana').value, mos = $('#fd-mostrar').value;
+  const lista = r.dias.filter((d) => {
+    if (de && d.data < de) return false;
+    if (ate && d.data > ate) return false;
+    if (sem === 'fds' && !['sábado', 'domingo'].includes(d.diaSemana)) return false;
+    if (sem === 'util' && ['sábado', 'domingo'].includes(d.diaSemana)) return false;
+    if (sem && sem !== 'fds' && sem !== 'util' && d.diaSemana !== sem) return false;
+    if (mos === 'venda' && !d.totalBruto) return false;
+    if (mos === 'semvenda' && d.totalBruto) return false;
+    if (mos === 'dif' && !(d.diferencas && Object.keys(d.diferencas).length)) return false;
+    if (mos === 'desp' && !d.despesas) return false;
+    if (mos === 'manual' && !((d.dinheiroManual !== null && d.dinheiroManual !== undefined) || (d.ajustado && Object.keys(d.ajustado).length))) return false;
+    return true;
+  });
+  return ordenarLista(lista, est.ordDias, (d, c) => ({ data: d.data, dinheiro: d.dinheiro, credito: d.bruto.credito, debito: d.bruto.debito, pix: d.bruto.pix, voucher: d.bruto.voucher,
+    total: d.totalBruto, taxas: d.taxas, liquido: d.liquido, despesas: d.despesas }[c]));
+}
+function filtrosDiasAtivos() { return !!($('#fd-de').value || $('#fd-ate').value || $('#fd-semana').value || $('#fd-mostrar').value); }
+['#fd-de', '#fd-ate', '#fd-semana', '#fd-mostrar'].forEach((id) => $(id).addEventListener('change', () => desenharDias()));
+$('#fd-limpar').onclick = () => { ['#fd-de', '#fd-ate', '#fd-semana', '#fd-mostrar'].forEach((id) => { $(id).value = ''; }); desenharDias(); };
+/** Ao trocar de mês, as datas do filtro precisam ficar dentro do mês. */
+function ajustarFiltrosDoMes() {
+  const ini = est.mes + '-01', fim = deslocarMes(est.mes, 1) + '-01';
+  const ult = new Date(Date.UTC(Number(fim.slice(0, 4)), Number(fim.slice(5, 7)) - 1, 0)).toISOString().slice(0, 10);
+  ['#fd-de', '#fd-ate', '#d-de', '#d-ate'].forEach((id) => {
+    const el = $(id); el.min = ini; el.max = ult;
+    if (el.value && el.value.slice(0, 7) !== est.mes) el.value = '';
+  });
+}
+
 function desenharDias() {
   const r = est.resumo;
   const tab = $('#t-dias');
@@ -2402,9 +2500,24 @@ function desenharDias() {
   const existentes = new Set(r.dias.map((d) => d.data));
   est.sel.forEach((x) => { if (!existentes.has(x)) est.sel.delete(x); });
   atualizarBarraSel();
+  ajustarFiltrosDoMes();
+  $('#fd-limpar').classList.toggle('oculto', !filtrosDiasAtivos());
   if (!r.dias.length) { tab.innerHTML = '<tr><td class="vazio">Nenhum dado neste mês.</td></tr>'; desenharExcluidos(); return; }
-  const cab = `<thead><tr><th class="sel-col"><input type="checkbox" id="sel-todos" title="Selecionar todos" aria-label="Selecionar todos os dias"></th><th>Dia</th><th class="dir">Dinheiro</th><th class="dir">Crédito</th><th class="dir">Débito</th><th class="dir">PIX</th><th class="dir">Voucher</th><th class="dir">Total bruto</th><th class="dir">Taxas</th><th class="dir">Líquido</th><th class="dir">Despesas</th><th>PDV × maquininhas</th></tr></thead>`;
-  const corpo = r.dias.map((d) => {
+  const lista = diasVisiveis();
+  est.diasVisiveis = lista;
+  // dia escondido pelo filtro sai da seleção (para não excluir sem querer o que não está na tela)
+  const vis = new Set(lista.map((d) => d.data));
+  est.sel.forEach((x) => { if (!vis.has(x)) est.sel.delete(x); });
+  atualizarBarraSel();
+  const o = est.ordDias;
+  const cab = `<thead><tr><th class="sel-col"><input type="checkbox" id="sel-todos" title="Selecionar todos" aria-label="Selecionar todos os dias"></th>${thOrd('Dia', 'data', o)}${thOrd('Dinheiro', 'dinheiro', o, 'dir')}${thOrd('Crédito', 'credito', o, 'dir')}${thOrd('Débito', 'debito', o, 'dir')}${thOrd('PIX', 'pix', o, 'dir')}${thOrd('Voucher', 'voucher', o, 'dir')}${thOrd('Total bruto', 'total', o, 'dir')}${thOrd('Taxas', 'taxas', o, 'dir')}${thOrd('Líquido', 'liquido', o, 'dir')}${thOrd('Despesas', 'despesas', o, 'dir')}<th>PDV × maquininhas</th></tr></thead>`;
+  if (!lista.length) {
+    tab.innerHTML = cab + `<tbody><tr><td colspan="12" class="vazio">Nenhum dia com esses filtros. <button class="btn btn-texto btn-peq" onclick="$('#fd-limpar').click()">Limpar filtros</button></td></tr></tbody>`;
+    ligarOrdenacao(tab, est.ordDias, 'fm_ord_dias', desenharDias);
+    desenharExcluidos();
+    return;
+  }
+  const corpo = lista.map((d) => {
     const excl = (r.excluidos || []).some((x) => x.data === d.data);
     const conf = excl ? '<span class="selo cinza" title="As vendas saíram, mas este dia ainda tem despesas. Exclua de novo marcando “Excluir também as despesas”, ou exclua as despesas na aba Despesas.">dia excluído · ainda tem despesas</span>' : !d.pdv ? '<span class="selo cinza">sem PDV</span>' : (d.diferencas && Object.keys(d.diferencas).length ? `<span class="selo dif">⚠️ ${Object.keys(d.diferencas).length} diferença(s)</span>` : '<span class="selo ok">✓ confere</span>');
     const din = `<input class="campo din-campo num" data-dia="${d.data}" value="${reaisCampo(d.dinheiro)}" title="${d.dinheiroManual !== null && d.dinheiroManual !== undefined ? 'Corrigido à mão' + (d.dinheiroPdv !== null ? ' (PDV: ' + fmt(d.dinheiroPdv) + ')' : '') : (d.dinheiroPdv !== null ? 'Valor do PDV' : 'Digite o dinheiro do dia')}" ${d.dinheiroManual !== null && d.dinheiroManual !== undefined ? 'style="border-color:var(--manual-t)"' : ''}>`;
@@ -2419,10 +2532,13 @@ function desenharDias() {
     if (est.diaAberto === d.data) linha += detalheDia(d);
     return linha;
   }).join('');
-  const t = r.totais;
-  const pe = `<tfoot><tr><td></td><td>Total</td><td class="dir num">${fmt(t.bruto.dinheiro)}</td>${['credito', 'debito', 'pix', 'voucher'].map((f) => `<td class="dir num">${fmt(t.bruto[f])}</td>`).join('')}<td class="dir num">${fmt(t.brutoTotal)}</td><td class="dir num">${fmt(t.taxasTotal)}</td><td class="dir num">${fmt(t.liquido)}</td><td class="dir num">${fmt(t.custos)}</td><td></td></tr></tfoot>`;
+  // total das linhas que estão na tela (com filtro, é o total do filtro)
+  const soma = (fn) => lista.reduce((acc, d) => acc + (fn(d) || 0), 0);
+  const filtrado = lista.length !== r.dias.length;
+  const pe = `<tfoot><tr><td></td><td>${filtrado ? `Total dos ${lista.length} dia(s) filtrado(s)` : 'Total'}</td><td class="dir num">${fmt(soma((d) => d.dinheiro))}</td>${['credito', 'debito', 'pix', 'voucher'].map((f) => `<td class="dir num">${fmt(soma((d) => d.bruto[f]))}</td>`).join('')}<td class="dir num">${fmt(soma((d) => d.totalBruto))}</td><td class="dir num">${fmt(soma((d) => d.taxas))}</td><td class="dir num">${fmt(soma((d) => d.liquido))}</td><td class="dir num">${fmt(soma((d) => d.despesas))}</td><td></td></tr></tfoot>`;
   tab.innerHTML = cab + '<tbody>' + corpo + '</tbody>' + pe;
   desenharExcluidos();
+  ligarOrdenacao(tab, est.ordDias, 'fm_ord_dias', desenharDias);
   ligarSelecao(tab);
   $$('tr.clic', tab).forEach((tr) => tr.onclick = (e) => { if (e.target.tagName === 'INPUT' || e.target.closest('.sel-col')) return; est.diaAberto = est.diaAberto === tr.dataset.dia ? null : tr.dataset.dia; desenharDias(); });
   $$('.din-campo', tab).forEach((inp) => {
@@ -2439,7 +2555,7 @@ function detalheDia(d) {
       dif += '<div class="dif-txt" style="margin-top:6px">Diferenças (maquininhas − PDV): ' + Object.entries(d.diferencas).map(([f, v]) => `${NOME_FORMA[f]} ${fmt(v, true)}`).join(' · ') + '</div>';
     }
   }
-  const din = d.dinheiroManual !== null && d.dinheiroManual !== undefined ? `Dinheiro corrigido à mão: ${fmt(d.dinheiroManual)}${d.dinheiroPdv !== null ? ' (PDV informou ' + fmt(d.dinheiroPdv) + ') <button class="btn btn-texto btn-peq" data-voltar-pdv="' + d.data + '">voltar ao valor do PDV</button>' : ''}` : (d.dinheiroPdv !== null ? 'Dinheiro vindo do PDV.' : 'Dinheiro não informado pelo PDV.');
+  const din = d.dinheiroManual !== null && d.dinheiroManual !== undefined ? `Dinheiro corrigido à mão: ${fmt(d.dinheiroManual)}${d.dinheiroPdv !== null ? ' (PDV informou ' + fmt(d.dinheiroPdv) + ') <button class="btn btn-texto btn-peq" data-voltar-pdv="' + d.data + '">voltar ao valor do PDV</button>' : ' <button class="btn btn-texto btn-peq" data-voltar-pdv="' + d.data + '">apagar o valor digitado</button>'}` : (d.dinheiroPdv !== null ? 'Dinheiro vindo do PDV.' : 'Dinheiro não informado pelo PDV.');
   const ajs = Object.keys(d.ajustado || {}).map((f) => `${NOME_FORMA[f]}: ${fmt(d.bruto[f])} (extratos: ${fmt(d.auto.bruto[f])}) · taxa ${fmt(d.taxaF[f])}${d.ajustado[f].taxa ? ' à mão' : ''}`);
   const aj = ajs.length ? `<div style="margin-top:6px"><span class="selo manual">Mudado à mão</span> ${ajs.join(' · ')}</div>` : '';
   const obs = d.observacao ? `<div style="margin-top:6px">📝 ${esc(d.observacao)}</div>` : '';
@@ -2491,7 +2607,7 @@ function atualizarBarraSel() {
   $('#sel-total').textContent = 'vendas ' + fmt(dias.reduce((s, d) => s + d.totalBruto, 0));
 }
 $$('[data-sel]').forEach((b) => b.onclick = () => {
-  const dias = est.resumo ? est.resumo.dias : [];
+  const dias = est.diasVisiveis || (est.resumo ? est.resumo.dias : []);
   const filtro = { todos: () => true, semvenda: (d) => !d.totalBruto, dif: (d) => d.diferencas && Object.keys(d.diferencas).length }[b.dataset.sel];
   est.sel = new Set(dias.filter(filtro).map((d) => d.data));
   if (!est.sel.size) toast('Nenhum dia nessa situação.', '');
@@ -2621,7 +2737,7 @@ document.addEventListener('click', async (e) => {
 async function salvarDinheiro(dia, valor) {
   const v = lerReais(valor);
   if (Number.isNaN(v)) { toast('Valor inválido.', 'erro'); return; }
-  try { await api('salvarDinheiro', { data: dia, manual: v }); toast(v === null ? 'Voltou ao valor do PDV.' : 'Dinheiro de ' + dataBR(dia) + ' salvo.', 'ok'); await carregarMes(); } catch (e) { toast(e.message, 'erro'); }
+  try { await api('salvarDinheiro', { data: dia, manual: v }); toast(v === null ? 'Valor digitado apagado.' : 'Dinheiro de ' + dataBR(dia) + ' salvo.', 'ok'); await carregarMes(); } catch (e) { toast(e.message, 'erro'); }
 }
 
 // ------------------------------------------------------------- importar
@@ -2700,6 +2816,9 @@ async function carregarDespesas(silencio) {
 }
 $('#d-busca').oninput = () => desenharDespesas();
 $('#d-origem').onchange = () => desenharDespesas();
+['#d-de', '#d-ate'].forEach((id) => $(id).addEventListener('change', () => desenharDespesas()));
+['#d-vmin', '#d-vmax'].forEach((id) => $(id).addEventListener('input', () => desenharDespesas()));
+$('#d-limpar').onclick = () => { ['#d-busca', '#d-de', '#d-ate', '#d-vmin', '#d-vmax'].forEach((id) => { $(id).value = ''; }); $('#d-origem').value = ''; est.filtroCat = ''; desenharDespesas(); };
 async function abrirComprovante(ref) {
   const w = window.open('', '_blank');
   try { const r = await api('linkComprovante', { ref }); if (w) w.location = r.url; else window.open(r.url, '_blank'); } catch (e) { if (w) w.close(); toast(e.message, 'erro'); }
@@ -2718,19 +2837,29 @@ function desenharDespesas() {
   $('#d-chips').innerHTML = `<button class="chip ${est.filtroCat ? '' : 'ativo'}" data-cat="">Todas</button>`
     + Object.entries(porCat).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<button class="chip ${est.filtroCat === c ? 'ativo' : ''}" data-cat="${esc(c)}">${c === 'A classificar' ? '⚠️ ' : ''}${esc(c)} · ${fmt(v)}</button>`).join('');
   $$('.chip', $('#d-chips')).forEach((b) => b.onclick = () => { est.filtroCat = b.dataset.cat; desenharDespesas(); });
-  const lista = est.despesas.filter((x) => (!est.filtroCat || x.categoria === est.filtroCat) && (!origem || x.origem === origem)
-    && (!busca || Leitores.semAcento(x.fornecedor + ' ' + x.descricao).toLowerCase().includes(busca)));
+  const de = $('#d-de').value, ate = $('#d-ate').value, vmin = reaisFiltro($('#d-vmin').value), vmax = reaisFiltro($('#d-vmax').value);
+  const filtrada = est.despesas.filter((x) => (!est.filtroCat || x.categoria === est.filtroCat) && (!origem || x.origem === origem)
+    && (!busca || Leitores.semAcento(x.fornecedor + ' ' + x.descricao).toLowerCase().includes(busca))
+    && (!de || x.data >= de) && (!ate || x.data <= ate) && (vmin === null || x.valor >= vmin) && (vmax === null || x.valor <= vmax));
+  const ORD_ORIG = { itau_conta: 'Itaú', stone_conta: 'Stone', manual: 'À mão' };
+  const lista = ordenarLista(filtrada, est.ordDesp, (x, c) => ({ data: x.data, fornecedor: Leitores.semAcento(x.fornecedor || '').toLowerCase(), origem: ORD_ORIG[x.origem] || x.origem,
+    valor: x.valor, categoria: x.categoria }[c]));
+  const algumFiltro = !!(est.filtroCat || origem || busca || de || ate || vmin !== null || vmax !== null);
+  $('#d-limpar').classList.toggle('oculto', !algumFiltro);
+  $('#d-info').textContent = algumFiltro ? `Mostrando ${lista.length} de ${est.despesas.length} · total filtrado ${fmt(lista.reduce((acc, x) => acc + x.valor, 0))}` : '';
   const ORIG = { itau_conta: ['itau', 'Itaú'], stone_conta: ['stone', 'Stone'], manual: ['manual', 'À mão'] };
   const visiveis = new Set(lista.map((x) => x.uid));
   est.dSel.forEach((u) => { if (!visiveis.has(u)) est.dSel.delete(u); });
-  $('#t-desp').innerHTML = lista.length ? `<thead><tr><th class="sel-col"><input type="checkbox" id="d-sel-todos" aria-label="Selecionar todas"></th><th>Data</th><th>Fornecedor</th><th>Origem</th><th class="dir">Valor</th><th>Categoria</th><th></th></tr></thead><tbody>` + lista.map((x) => {
+  const od = est.ordDesp;
+  $('#t-desp').innerHTML = lista.length ? `<thead><tr><th class="sel-col"><input type="checkbox" id="d-sel-todos" aria-label="Selecionar todas"></th>${thOrd('Data', 'data', od)}${thOrd('Fornecedor', 'fornecedor', od)}${thOrd('Origem', 'origem', od)}${thOrd('Valor', 'valor', od, 'dir')}${thOrd('Categoria', 'categoria', od)}<th></th></tr></thead><tbody>` + lista.map((x) => {
     const o = ORIG[x.origem] || ['cinza', x.origem];
     const opts = cats.map((c) => `<option ${c.nome === x.categoria ? 'selected' : ''}>${esc(c.nome)}</option>`).join('');
     return `<tr class="${est.dSel.has(x.uid) ? 'marcado' : ''}"><td class="sel-col"><input type="checkbox" class="d-sel" data-uid="${esc(x.uid)}" ${est.dSel.has(x.uid) ? 'checked' : ''} aria-label="Selecionar"></td><td class="num">${dataBR(x.data).slice(0, 5)}</td><td><b>${esc(x.fornecedor)}</b><div class="suave peq">${esc(x.descricao !== x.fornecedor ? x.descricao : '')}${x.observacao ? ' · ' + esc(x.observacao) : ''}</div></td>
       <td><span class="selo ${o[0]}">${esc(o[1])}</span></td><td class="dir num"><b>${fmt(x.valor)}</b></td>
       <td><select class="cat-sel ${x.categoria === 'A classificar' ? 'pendente' : ''}" data-uid="${esc(x.uid)}">${opts}</select></td>
       <td style="white-space:nowrap">${x.comprovante ? `<button class="btn btn-texto btn-peq" data-comp="${esc(x.comprovante)}" title="Ver comprovante">📎</button>` : ''}<button class="btn btn-texto btn-peq" data-edit="${esc(x.uid)}">editar</button></td></tr>`;
-  }).join('') + '</tbody>' : '<tr><td class="vazio">Nenhuma despesa.</td></tr>';
+  }).join('') + '</tbody>' : `<tr><td class="vazio">${algumFiltro ? 'Nenhuma despesa com esses filtros.' : 'Nenhuma despesa.'}</td></tr>`;
+  ligarOrdenacao($('#t-desp'), est.ordDesp, 'fm_ord_desp', desenharDespesas);
   $$('.cat-sel', $('#t-desp')).forEach((s) => s.onchange = () => mudarCategoria(s.dataset.uid, s.value));
   $$('[data-edit]', $('#t-desp')).forEach((b) => b.onclick = () => editarDespesa(est.despesas.find((x) => x.uid === b.dataset.edit)));
   const ordem = lista.map((x) => x.uid);
@@ -2940,10 +3069,10 @@ async function carregarConfig() {
     $('#cf-docs').value = c.documentosProprios;
     $('#cf-pdv-token').textContent = c.pdvToken || '(peça ao administrador)';
     $('#cf-pdv-url').textContent = (window.FM_CONFIG && FM_CONFIG.url) || '';
-    $('#cf-pdv-status').innerHTML = c.pdv && c.pdv.quantos ? `✅ Ligado: ${c.pdv.quantos} fechamento(s) recebido(s). Último: <b>${dataBR(c.pdv.ultimo)}</b>.` : '⏳ Ainda não chegou nenhum fechamento do PDV.';
+    $('#cf-pdv-status').innerHTML = c.pdv && c.pdv.quantos ? `✅ Ligado: ${c.pdv.quantos} dia(s) com vendas do PDV. Último: <b>${dataBR(c.pdv.ultimo)}</b>.` : '⏳ Nenhum dia do PDV no momento: a planilha do PDV está vazia ou o PDV ainda não vendeu. Assim que vender, aparece aqui.';
     const nomes = JSON.parse(c.nomesMaquininhas || '{}');
     $('#cf-maqs').innerHTML = c.maquininhas.length ? c.maquininhas.map((k) => { const [o, id] = k.split('|'); return `<div class="linha" style="margin-bottom:8px"><span class="selo ${o}" style="min-width:56px;text-align:center">${o === 'stone' ? 'Stone' : 'Itaú'}</span><span class="num" style="min-width:100px">${esc(id)}</span><input class="campo" style="flex:1" data-maq="${esc(k)}" value="${esc(nomes[k] || '')}" placeholder="ex.: Caixa da frente"></div>`; }).join('') : '<p class="suave">Importe as vendas para ver as maquininhas.</p>';
-    $('#cf-cats').innerHTML = est.inicio.categorias.map((x) => `<span class="chip">${esc(x.nome)}${x.noResultado ? '' : ' <span class="suave">(fora)</span>'}</span>`).join('');
+    desenharCategorias();
     $('#t-regras').innerHTML = `<thead><tr><th>Se o fornecedor contém</th><th>Categoria</th><th>Criada por</th></tr></thead><tbody>` + c.regras.map((r) => `<tr><td class="num">${esc(r.padrao)}</td><td>${esc(r.categoria)}</td><td class="suave">${esc(r.criadoPor)}</td></tr>`).join('') + '</tbody>';
   } catch (e) { toast(e.message, 'erro'); }
 }
@@ -2993,6 +3122,61 @@ $('#mig-arq').onchange = async () => {
     est.inicio = await SRV.executar('inicio'); carregarMes();
   } catch (e) { st.innerHTML = '<span class="msg-erro">' + esc(e.message) + '</span>'; } finally { esconderCarregando(); }
 };
+// ------------------------------------------------------------- categorias: criar, editar, excluir
+const CAT_SISTEMA = ['A classificar', 'Retirada dos sócios', 'Transferência entre contas'];
+function desenharCategorias() {
+  $('#cf-cats').innerHTML = est.inicio.categorias.map((x) => `<button class="chip chip-btn" data-cat-editar="${esc(x.nome)}" title="Editar">${CAT_SISTEMA.includes(x.nome) ? '🔒 ' : ''}${esc(x.nome)}${x.noResultado ? '' : ' <span class="suave">(fora)</span>'}</button>`).join('');
+}
+async function recarregarCategorias(msg) {
+  est.inicio = await api('inicio', {}, { silencio: true });
+  desenharCategorias();
+  if (est.pagina === 'despesas') carregarDespesas(true);
+  carregarMes(false, true);
+  if (msg) toast(msg, 'ok');
+}
+$('#cf-cats').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-cat-editar]');
+  if (!b) return;
+  const nome = b.dataset.catEditar;
+  const cat = est.inicio.categorias.find((x) => x.nome === nome);
+  if (!cat) return;
+  let contagem = {};
+  try { contagem = await api('contarCategorias'); } catch (err) { /* segue sem a contagem */ }
+  const n = contagem[nome] || 0;
+  const sistema = CAT_SISTEMA.includes(nome);
+  const outras = est.inicio.categorias.filter((x) => x.nome !== nome).map((x) => x.nome);
+  modal(`<h2>Categoria</h2>
+    <p class="suave">${n ? `<b>${n}</b> despesa(s) nesta categoria.` : 'Nenhuma despesa nesta categoria.'}${sistema ? ' Esta categoria é usada pelo sistema: dá para mudar só se ela entra no resultado.' : ''}</p>
+    <label class="rotulo" for="ec-nome">Nome</label>
+    <input id="ec-nome" class="campo" maxlength="50" value="${esc(nome)}" ${sistema ? 'disabled' : 'autofocus'}>
+    <label class="chk"><input type="checkbox" id="ec-fora" ${cat.noResultado ? '' : 'checked'}> fora do resultado</label>
+    <p class="suave peq">"Fora do resultado" é para o que não é custo do restaurante, como retiradas dos sócios e transferências entre contas. ${sistema ? '' : 'Se você usar o nome de uma categoria que já existe, as duas viram uma só.'}</p>
+    ${sistema ? '' : `<details class="zona-perigo"><summary>🗑️ Excluir esta categoria</summary>
+      <label class="rotulo" for="ec-destino">As despesas e regras dela vão para</label>
+      <select id="ec-destino" class="campo">${outras.map((o) => `<option ${o === 'A classificar' ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
+      <div class="modal-acoes"><button class="btn btn-perigo" data-a="excluir">Excluir categoria</button></div></details>`}
+    <p class="msg-erro" id="ec-erro"></p>
+    <div class="modal-acoes"><button class="btn btn-claro" data-a="n">Cancelar</button><button class="btn btn-prim" data-a="s">Salvar</button></div>`, (m) => {
+    $('[data-a=n]', m).onclick = () => fecharModal(null);
+    $('[data-a=s]', m).onclick = async () => {
+      const novo = $('#ec-nome', m).value.trim().replace(/\s+/g, ' ');
+      try {
+        const r = await api('editarCategoria', { antigo: nome, nome: novo, noResultado: !$('#ec-fora', m).checked });
+        fecharModal(true);
+        await recarregarCategorias(novo !== nome ? (r.juntou ? `"${nome}" juntou-se a "${novo}"` : `Renomeada para "${novo}"`) + (r.despesas ? ` · ${r.despesas} despesa(s) atualizada(s).` : '.') : 'Categoria salva.');
+      } catch (err) { erroEm(m, '#ec-erro', err.message); }
+    };
+    const ex = $('[data-a=excluir]', m);
+    if (ex) ex.onclick = async () => {
+      const destino = $('#ec-destino', m).value;
+      try {
+        const r = await api('excluirCategoria', { nome, destino });
+        fecharModal(true);
+        await recarregarCategorias(`Categoria "${nome}" excluída.` + (r.despesas ? ` ${r.despesas} despesa(s) foram para "${destino}".` : ''));
+      } catch (err) { erroEm(m, '#ec-erro', err.message); }
+    };
+  });
+});
 $('#b-nova-cat').onclick = async () => {
   try { await api('salvarCategoria', { nome: $('#cf-nova-cat').value, noResultado: !$('#cf-nova-cat-fora').checked }); $('#cf-nova-cat').value = ''; est.inicio = await api('inicio'); carregarConfig(); toast('Categoria criada.', 'ok'); } catch (e) { toast(e.message, 'erro'); }
 };
