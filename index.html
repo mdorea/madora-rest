@@ -12,17 +12,42 @@
   document.documentElement.setAttribute('data-tema', t); })();
 </script>
 <script>
-// Se algo falhar ao carregar, mostra o erro na tela em vez de deixar a página em branco.
+// Se algo falhar, mostra o erro na tela em vez de deixar a página em branco.
+// Erros de extensões do navegador (tradutor, antivírus, gerenciador de senhas...) são ignorados:
+// não são do Financeiro e não afetam os dados.
 (function () {
+  var vistos = {};
+  function deExtensao(texto) { return /(chrome|moz|safari-web|ms-browser)-extension:\/\/|webkit-masked-url:/i.test(String(texto || '')); }
+  function origem(stack) { var m = String(stack || '').match(/https?:\/\/[^\s)]+/); return m ? m[0].replace(/^https?:\/\//, '').slice(0, 80) : ''; }
   function mostrar(msg) {
     try {
+      vistos[msg] = (vistos[msg] || 0) + 1;
       var el = document.getElementById('erro-carga');
-      if (!el) { el = document.createElement('div'); el.id = 'erro-carga'; el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#b3412f;color:#fff;padding:12px 14px;border-radius:10px;font:14px/1.4 Arial,sans-serif;white-space:pre-wrap'; (document.body || document.documentElement).appendChild(el); }
-      el.textContent = (el.textContent ? el.textContent + '\n' : 'Erro no Financeiro (mande um print disto): ') + msg;
+      if (!el) {
+        el = document.createElement('div'); el.id = 'erro-carga';
+        el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#b3412f;color:#fff;padding:12px 40px 12px 14px;border-radius:10px;font:14px/1.4 Arial,sans-serif;white-space:pre-wrap';
+        (document.body || document.documentElement).appendChild(el);
+      }
+      var linhas = Object.keys(vistos).map(function (k) { return k + (vistos[k] > 1 ? ' (×' + vistos[k] + ')' : ''); });
+      el.textContent = 'Erro no Financeiro (mande um print disto):\n' + linhas.join('\n');
+      var x = document.createElement('button');
+      x.textContent = '×'; x.title = 'Fechar';
+      x.style.cssText = 'position:absolute;top:6px;right:8px;background:none;border:0;color:#fff;font:22px/1 Arial,sans-serif;cursor:pointer';
+      x.onclick = function () { el.remove(); vistos = {}; };
+      el.appendChild(x);
     } catch (e) { /* nada */ }
   }
-  window.addEventListener('error', function (e) { mostrar((e.message || 'erro') + (e.lineno ? ' (linha ' + e.lineno + ')' : '')); });
-  window.addEventListener('unhandledrejection', function (e) { var r = e.reason; mostrar('Falha: ' + (r && r.message ? r.message : String(r))); });
+  window.addEventListener('error', function (e) {
+    if (deExtensao(e.filename) || deExtensao(e.error && e.error.stack)) return;
+    var o = e.filename ? origem(e.filename) : '';
+    mostrar((e.message || 'erro') + (e.lineno ? ' (linha ' + e.lineno + ')' : '') + (o && o.indexOf(location.host) < 0 ? ' [' + o + ']' : ''));
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    if (deExtensao(r && r.stack)) return;
+    var o = origem(r && r.stack);
+    mostrar('Falha: ' + (r && r.message ? r.message : String(r)) + (o && o.indexOf(location.host) < 0 ? ' [' + o + ']' : ''));
+  });
 })();
 </script>
 <title>Financeiro Madora</title>
@@ -275,6 +300,33 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
 .drop-usuario { position: absolute; right: 0; top: 110%; background: var(--sup); border: 1px solid var(--borda); border-radius: 12px; box-shadow: var(--sombra-f); min-width: 230px; padding: 6px; z-index: 20; }
 .drop-usuario button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 10px 12px; border-radius: 8px; }
 .drop-usuario button:hover { background: var(--sup2); }
+/* ---------- avisos: sininho e tela travada ---------- */
+.sino-wrap { position: relative; }
+#b-sino { position: relative; }
+.sino-n { position: absolute; top: -4px; right: -4px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 99px; background: var(--ruim); color: #fff; font-size: .7rem; font-weight: 800; line-height: 19px; text-align: center; }
+.drop-sino { position: absolute; right: 0; top: 112%; width: min(380px, 92vw); max-height: 70vh; overflow: auto; background: var(--sup); border: 1px solid var(--borda); border-radius: 14px; box-shadow: var(--sombra-f); z-index: 30; }
+.drop-sino-cab { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--linha); position: sticky; top: 0; background: var(--sup); }
+.av-item { padding: 12px 14px; border-bottom: 1px solid var(--linha); }
+.av-item:last-child { border-bottom: 0; }
+.av-item.novo { background: var(--prim-cla); }
+.av-item b { display: block; margin-bottom: 2px; }
+.av-item .av-msg { white-space: pre-wrap; font-size: .9rem; color: var(--texto2); margin: 4px 0; word-break: break-word; }
+.av-item .av-meta { font-size: .76rem; color: var(--suave); }
+.av-vazio { padding: 22px 14px; text-align: center; color: var(--suave); }
+.trava { position: fixed; inset: 0; z-index: 200; background: rgba(20, 18, 14, .78); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.trava-cartao { background: var(--sup); color: var(--texto); border-radius: 18px; box-shadow: var(--sombra-f); width: min(560px, 100%); max-height: 90vh; overflow: auto; padding: 26px 26px 22px; border-top: 6px solid var(--ruim); }
+.trava-cartao .trava-selo { font-size: .78rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--ruim); }
+.trava-cartao h2 { margin: 6px 0 10px; font-size: 1.35rem; }
+.trava-cartao .av-msg { white-space: pre-wrap; font-size: 1rem; line-height: 1.55; margin-bottom: 14px; word-break: break-word; }
+.trava-cartao .av-meta { font-size: .82rem; color: var(--suave); margin-bottom: 18px; }
+.trava-cartao .modal-acoes { justify-content: space-between; align-items: center; }
+@media (max-width: 760px) { .drop-sino { position: fixed; left: 12px; right: 12px; top: 120px; width: auto; max-height: 65vh; } }
+.av-pessoas { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 6px; }
+.av-env { border: 1px solid var(--borda); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.av-env-cab { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.av-env .av-msg { white-space: pre-wrap; font-size: .88rem; color: var(--texto2); margin: 4px 0 6px; word-break: break-word; }
+.av-env details summary { cursor: pointer; font-size: .86rem; }
+.av-env ul { margin: 6px 0 0; padding-left: 18px; font-size: .85rem; }
 .codigo-pdv { font-family: ui-monospace, Consolas, monospace; background: var(--sup2); border: 1px dashed var(--borda); border-radius: 8px; padding: 8px 10px; word-break: break-all; user-select: all; }
 
 /* ============ tela de carregamento (a panelinha) ============ */
@@ -402,6 +454,13 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
         <button class="btn btn-claro btn-peq" id="mes-prox" title="Próximo mês">▶</button>
       </div>
       <div class="relogio" id="relogio" title="Horário de Brasília"><b>--:--</b><span>Brasília</span></div>
+      <div class="sino-wrap">
+        <button class="btn btn-claro btn-tema" id="b-sino" title="Avisos" aria-label="Avisos">🔔<span class="sino-n oculto" id="sino-n"></span></button>
+        <div id="drop-sino" class="drop-sino oculto">
+          <div class="drop-sino-cab"><b>Avisos</b><button class="btn btn-texto btn-peq" id="sino-ler-todos">marcar todos como lidos</button></div>
+          <div id="sino-lista"></div>
+        </div>
+      </div>
       <button class="btn btn-claro btn-tema" data-tema-botao title="Modo claro / escuro" aria-label="Trocar entre modo claro e escuro">🌙</button>
       <div class="usuario">
         <button class="btn btn-claro btn-peq" id="b-usuario">👤 <span id="u-nome"></span></button>
@@ -565,6 +624,7 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
         <button data-aba="usuarios" class="ativo">Usuários e acessos</button>
         <button data-aba="logs">Registro de atividades</button>
         <button data-aba="config">Configurações</button>
+        <button data-aba="avisos">📣 Avisos</button>
       </div>
       <div id="a-usuarios">
         <div class="linha" style="justify-content:flex-end;margin-bottom:10px"><button class="btn btn-prim" id="b-novo-usuario">＋ Novo usuário</button></div>
@@ -576,12 +636,37 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
           <select id="lg-evento" class="campo">
             <option value="">Todos os eventos</option><option value="login">Logins</option><option value="codigo">Códigos</option><option value="bloqueio">Bloqueios</option>
             <option value="importacao">Importações</option><option value="despesa">Despesas</option><option value="dinheiro">Dinheiro</option><option value="dia_">Dias editados/excluídos</option><option value="usuario">Usuários</option>
-            <option value="config">Configurações</option><option value="acesso_negado">Acessos negados</option><option value="exportacao">Exportações</option><option value="erro">Erros</option>
+            <option value="config">Configurações</option><option value="aviso">Avisos</option><option value="acesso_negado">Acessos negados</option><option value="exportacao">Exportações</option><option value="erro">Erros</option>
           </select>
           <span class="suave" id="lg-total"></span>
         </div>
         <div class="tab-wrap"><table class="tab" id="t-logs"></table></div>
         <div class="linha" style="margin-top:10px"><button class="btn btn-claro btn-peq" id="lg-ant">◀ Mais novos</button><button class="btn btn-claro btn-peq" id="lg-prox">Mais antigos ▶</button></div>
+      </div>
+      <div id="a-avisos" class="oculto">
+        <div class="grade g2">
+          <div class="painel">
+            <h3>📣 Enviar aviso</h3>
+            <p class="suave peq">Chega para os outros usuários do Financeiro (você não recebe o seu próprio aviso).</p>
+            <label class="rotulo" for="av-titulo">Título</label>
+            <input id="av-titulo" class="campo" maxlength="120" placeholder="ex.: Fechar o caixa todo dia antes das 23h">
+            <label class="rotulo" for="av-msg">Mensagem</label>
+            <textarea id="av-msg" class="campo" rows="5" maxlength="2000" placeholder="Escreva o recado (opcional)"></textarea>
+            <label class="rotulo">Como aparece</label>
+            <label class="chk"><input type="radio" name="av-tipo" value="normal" checked> 🔔 No sininho (a pessoa vê quando quiser)</label>
+            <label class="chk"><input type="radio" name="av-tipo" value="importante"> 🔒 Trava a tela até a pessoa clicar em “Li e entendi”</label>
+            <label class="rotulo">Para quem</label>
+            <label class="chk"><input type="checkbox" id="av-todos" checked> Todos os usuários</label>
+            <div id="av-pessoas" class="av-pessoas oculto"></div>
+            <p class="msg-erro" id="av-erro"></p>
+            <div class="modal-acoes"><button class="btn btn-claro" id="av-previa">👀 Ver como fica</button><button class="btn btn-prim" id="av-enviar">Enviar aviso</button></div>
+          </div>
+          <div class="painel">
+            <h3>Avisos enviados</h3>
+            <p class="suave peq">Veja quem já leu. Apagar um aviso tira ele do sininho de todo mundo.</p>
+            <div id="av-lista"></div>
+          </div>
+        </div>
       </div>
       <div id="a-config" class="oculto">
         <div class="grade g2">
@@ -1614,6 +1699,23 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
         limpar(); return r;
       },
       async contarCategorias() { return db.rpc('contar_categorias', {}); },
+
+      // ---------------- avisos (sininho e tela travada)
+      async meusAvisos() { return db.rpc('meus_avisos', {}); },
+      async marcarAvisos(d) {
+        const ids = (d.ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+        if (!ids.length) return 0;
+        return db.rpc('marcar_avisos', { p_ids: ids, p_confirmar: !!d.confirmar });
+      },
+      async enviarAviso(d) {
+        const titulo = String(d.titulo || '').trim();
+        if (titulo.length < 2) throw erro('Escreva um título para o aviso.');
+        if (String(d.mensagem || '').length > 2000) throw erro('Mensagem grande demais (máx. 2.000 letras).');
+        const para = Array.isArray(d.para) && d.para.length ? d.para.map(String) : null;
+        return db.rpc('enviar_aviso', { p_titulo: titulo, p_mensagem: String(d.mensagem || ''), p_importante: !!d.importante, p_para: para, p_nav: nav() });
+      },
+      async avisosEnviados() { return db.rpc('avisos_enviados', {}); },
+      async apagarAviso(d) { await db.rpc('apagar_aviso', { p_id: Number(d.id), p_nav: nav() }); return true; },
       async usuarios() { return db.rpc('usuarios', {}); },
       async salvarUsuario(d) {
         if (!d.id) {
@@ -1914,9 +2016,92 @@ async function iniciarSessao(usuario) {
     await carregarMes(true);
     irPara('painel');
   } catch (e) { toast(mensagemRede(e), 'erro'); }
+  carregarAvisos();
 }
+
+// ------------------------------------------------------------- avisos: sininho e tela travada
+est.avisos = [];
+function quandoAviso(t) { return t ? dataBR(t.slice(0, 10)).slice(0, 5) + ' às ' + t.slice(11, 16) : ''; }
+async function carregarAvisos() {
+  if (!est.usuario) return;
+  try { est.avisos = await api('meusAvisos', {}, { silencio: true }); } catch (e) { return; }
+  desenharSino();
+  mostrarTravaSePrecisar();
+}
+function desenharSino() {
+  const novos = (est.avisos || []).filter((a) => !a.lido).length;
+  $('#sino-n').textContent = novos > 9 ? '9+' : String(novos);
+  $('#sino-n').classList.toggle('oculto', !novos);
+  $('#b-sino').title = novos ? `${novos} aviso(s) novo(s)` : 'Avisos';
+  $('#sino-ler-todos').classList.toggle('oculto', !novos);
+  $('#sino-lista').innerHTML = (est.avisos || []).length ? est.avisos.map((a) => `<div class="av-item ${a.lido ? '' : 'novo'}">
+      <b>${a.importante ? '🔒 ' : ''}${esc(a.titulo)}</b>${a.mensagem ? `<div class="av-msg">${esc(a.mensagem)}</div>` : ''}
+      <div class="av-meta">${a.de ? 'de ' + esc(a.de) + ' · ' : ''}${quandoAviso(a.criado_em)}${a.importante ? (a.confirmado ? ' · ✓ você confirmou' : '') : ''}</div></div>`).join('')
+    : '<div class="av-vazio">Nenhum aviso por enquanto. 🔕</div>';
+}
+async function lerAvisos(lista) {
+  const ids = lista.filter((a) => !a.lido && !a.importante).map((a) => a.id); // importante só conta como lido ao confirmar
+  if (!ids.length) return;
+  try { await api('marcarAvisos', { ids, confirmar: false }, { silencio: true }); ids.forEach((id) => { const a = est.avisos.find((x) => x.id === id); if (a) a.lido = true; }); } catch (e) { /* tenta na próxima */ }
+}
+$('#b-sino').onclick = async (e) => {
+  e.stopPropagation();
+  const drop = $('#drop-sino');
+  const abrindo = drop.classList.contains('oculto');
+  drop.classList.toggle('oculto');
+  $('#drop-usuario').classList.add('oculto');
+  if (abrindo) { desenharSino(); await lerAvisos(est.avisos || []); setTimeout(desenharSino, 2500); } // destaca os novos por um instante
+};
+$('#drop-sino').addEventListener('click', (e) => e.stopPropagation());
+document.addEventListener('click', () => $('#drop-sino').classList.add('oculto'));
+$('#sino-ler-todos').onclick = async () => { await lerAvisos(est.avisos || []); desenharSino(); };
+
+/** Aviso importante: tela travada até a pessoa clicar em "Li e entendi". */
+let travaAberta = false;
+function fecharTrava() { const t = $('#trava'); if (t) t.remove(); travaAberta = false; }
+function mostrarTravaSePrecisar() {
+  if (travaAberta || !est.usuario) return;
+  const pend = (est.avisos || []).filter((a) => a.importante && !a.confirmado).sort((a, b) => (a.criado_em < b.criado_em ? -1 : 1));
+  if (pend.length) abrirTrava(pend, false);
+}
+function abrirTrava(pend, previa) {
+  fecharTrava();
+  travaAberta = true;
+  const a = pend[0];
+  const el = document.createElement('div');
+  el.id = 'trava'; el.className = 'trava';
+  el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-modal', 'true');
+  el.innerHTML = `<div class="trava-cartao">
+    <div class="trava-selo">🔒 Aviso importante${pend.length > 1 ? ` · 1 de ${pend.length}` : ''}${previa ? ' · PRÉVIA' : ''}</div>
+    <h2>${esc(a.titulo)}</h2>
+    ${a.mensagem ? `<div class="av-msg">${esc(a.mensagem)}</div>` : ''}
+    <div class="av-meta">${a.de ? 'Enviado por ' + esc(a.de) + ' · ' : ''}${quandoAviso(a.criado_em)}</div>
+    <p class="msg-erro" id="trava-erro"></p>
+    <div class="modal-acoes"><span class="suave peq">${previa ? 'É assim que os outros vão ver.' : 'Para continuar usando o Financeiro, confirme que leu.'}</span><button class="btn btn-prim" id="trava-ok">${previa ? 'Fechar prévia' : 'Li e entendi'}</button></div>
+  </div>`;
+  document.body.appendChild(el);
+  const ok = $('#trava-ok', el);
+  setTimeout(() => ok.focus(), 30);
+  ok.onclick = async () => {
+    if (previa) { fecharTrava(); return; }
+    ok.disabled = true; ok.textContent = 'Aguarde…';
+    try {
+      await api('marcarAvisos', { ids: [a.id], confirmar: true }, { silencio: true });
+      a.lido = true; a.confirmado = true;
+      fecharTrava(); desenharSino();
+      const resto = pend.slice(1).filter((x) => !x.confirmado);
+      if (resto.length) abrirTrava(resto, false);
+    } catch (e) {
+      ok.disabled = false; ok.textContent = 'Li e entendi';
+      $('#trava-erro', el).textContent = mensagemRede(e);
+    }
+  };
+}
+// a tela travada não fecha com Esc nem clicando fora
+document.addEventListener('keydown', (e) => { if (travaAberta && e.key === 'Escape') { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
 function sairLocal(msg) {
-  est.usuario = null; est.resumo = null; est.comp = null;
+  est.usuario = null; est.resumo = null; est.comp = null; est.avisos = [];
+  fecharTrava(); $('#drop-sino').classList.add('oculto'); desenharSino();
   $('#app').classList.add('oculto'); $('#tela-login').classList.remove('oculto');
   $('#l-erro').textContent = msg || '';
   setTimeout(() => ($('#l-email').value ? $('#l-senha') : $('#l-email')).focus(), 50);
@@ -2015,6 +2200,7 @@ async function conferirNovidades() {
   if (conferindo || !est.usuario || !est.mes || document.visibilityState !== 'visible') return;
   if (!$('#modal-fundo').classList.contains('oculto') || (est.sel && est.sel.size)) return; // não mexe na tela no meio de uma edição
   conferindo = true; ultimaConferencia = Date.now();
+  carregarAvisos();
   try {
     if (await api('novidades', { mes: est.mes }, { silencio: true })) {
       await carregarMes(false, true);
@@ -3126,7 +3312,8 @@ function editarDespesa(x) {
 $$('#a-abas button').forEach((b) => b.onclick = () => abrirAba(b.dataset.aba));
 function abrirAba(a) {
   $$('#a-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === a));
-  ['usuarios', 'logs', 'config'].forEach((x) => $('#a-' + x).classList.toggle('oculto', x !== a));
+  ['usuarios', 'logs', 'config', 'avisos'].forEach((x) => $('#a-' + x).classList.toggle('oculto', x !== a));
+  if (a === 'avisos') carregarAvisosAdmin();
   if (a === 'usuarios') carregarUsuarios();
   if (a === 'logs') { est.logPag = 0; carregarLogs(); }
   if (a === 'config') carregarConfig();
@@ -3176,7 +3363,58 @@ function editarUsuario(u) {
     if ($('[data-a=sess]', m)) $('[data-a=sess]', m).onclick = async () => { try { await api('encerrarSessoes', { id: u.id }); fecharModal(); toast('Sessões encerradas.', 'ok'); carregarUsuarios(); } catch (e) { erroEm(m, '#u-erro', e.message); } };
   });
 }
-const NOME_EVENTO = { login_ok: 'Entrou', login_falha: 'Falha no login', login_bloqueado: 'Tentou entrar bloqueado', bloqueio: 'Bloqueado', codigo_enviado: 'Código enviado', codigo_falha: 'Código errado', logout: 'Saiu', importacao: 'Importação', despesa_criada: 'Despesa lançada', despesa_editada: 'Despesa editada', despesa_excluida: 'Despesa excluída', categoria_alterada: 'Categoria alterada', regra_criada: 'Regra criada', dinheiro_editado: 'Dinheiro editado', saldo_editado: 'Saldo editado', exportacao: 'Exportação', usuario_criado: 'Usuário criado', usuario_alterado: 'Usuário alterado', senha_redefinida: 'Senha redefinida', senha_trocada: 'Trocou a senha', sessoes_encerradas: 'Sessões encerradas', config_alterada: 'Configuração', acesso_negado: 'Acesso negado', erro: 'Erro', admin_definido: 'Administrador definido', navegadores_esquecidos: 'Navegadores esquecidos', dia_editado: 'Dia editado', dia_excluido: 'Dia excluído', dia_restaurado: 'Dia restaurado', categoria_salva: 'Categoria criada' };
+const NOME_EVENTO = { login_ok: 'Entrou', login_falha: 'Falha no login', login_bloqueado: 'Tentou entrar bloqueado', bloqueio: 'Bloqueado', codigo_enviado: 'Código enviado', codigo_falha: 'Código errado', logout: 'Saiu', importacao: 'Importação', despesa_criada: 'Despesa lançada', despesa_editada: 'Despesa editada', despesa_excluida: 'Despesa excluída', categoria_alterada: 'Categoria alterada', regra_criada: 'Regra criada', dinheiro_editado: 'Dinheiro editado', saldo_editado: 'Saldo editado', exportacao: 'Exportação', usuario_criado: 'Usuário criado', usuario_alterado: 'Usuário alterado', senha_redefinida: 'Senha redefinida', senha_trocada: 'Trocou a senha', sessoes_encerradas: 'Sessões encerradas', config_alterada: 'Configuração', acesso_negado: 'Acesso negado', erro: 'Erro', admin_definido: 'Administrador definido', navegadores_esquecidos: 'Navegadores esquecidos', dia_editado: 'Dia editado', dia_excluido: 'Dia excluído', dia_restaurado: 'Dia restaurado', categoria_salva: 'Categoria criada', categoria_editada: 'Categoria editada', categoria_excluida: 'Categoria excluída', aviso_enviado: 'Aviso enviado', aviso_confirmado: 'Confirmou aviso', aviso_apagado: 'Aviso apagado' };
+// ------------------------------------------------------------- administração: avisos
+async function carregarAvisosAdmin() {
+  try {
+    const [pessoas, enviados] = await Promise.all([api('usuarios', {}, { silencio: true }), api('avisosEnviados')]);
+    const outros = pessoas.filter((u) => u.ativo && u.id !== est.usuario.id);
+    $('#av-pessoas').innerHTML = outros.length ? outros.map((u) => `<label class="chk" style="margin:0"><input type="checkbox" class="av-p" value="${esc(u.id)}"> ${esc(u.nome || u.login)}</label>`).join('')
+      : '<span class="suave peq">Nenhum outro usuário ativo ainda. Crie em Usuários e acessos.</span>';
+    $('#av-lista').innerHTML = enviados.length ? enviados.map((a) => {
+      const leram = a.pessoas.filter((p) => a.importante ? p.confirmado : p.lido).length;
+      return `<div class="av-env"><div class="av-env-cab"><div><b>${a.importante ? '🔒 ' : '🔔 '}${esc(a.titulo)}</b><div class="suave peq">${quandoAviso(a.criado_em)} · ${a.para_todos ? 'para todos' : 'para ' + a.pessoas.length + ' pessoa(s)'}</div></div>
+        <button class="btn btn-texto btn-peq" data-av-apagar="${a.id}">apagar</button></div>
+        ${a.mensagem ? `<div class="av-msg">${esc(a.mensagem)}</div>` : ''}
+        <details><summary>${a.importante ? 'Confirmaram' : 'Leram'}: <b>${leram} de ${a.pessoas.length}</b></summary><ul>${a.pessoas.map((p) => `<li>${esc(p.nome || p.login)} — ${a.importante ? (p.confirmado ? '✓ confirmou ' + p.confirmado : '⏳ ainda não confirmou') : (p.lido ? '✓ leu ' + p.lido : '⏳ ainda não leu')}</li>`).join('') || '<li class="suave">ninguém</li>'}</ul></details></div>`;
+    }).join('') : '<p class="suave">Nenhum aviso enviado ainda.</p>';
+    $$('[data-av-apagar]', $('#av-lista')).forEach((b) => b.onclick = async () => {
+      if (!(await confirmar('Apagar aviso?', 'Ele some do sininho de todo mundo. Não dá para desfazer.', 'Apagar'))) return;
+      try { await api('apagarAviso', { id: Number(b.dataset.avApagar) }); toast('Aviso apagado.', 'ok'); carregarAvisosAdmin(); } catch (e) { toast(e.message, 'erro'); }
+    });
+  } catch (e) { toast(e.message, 'erro'); }
+}
+$('#av-todos').onchange = () => $('#av-pessoas').classList.toggle('oculto', $('#av-todos').checked);
+function avisoDoFormulario() {
+  return {
+    titulo: $('#av-titulo').value.trim(), mensagem: $('#av-msg').value.trim(),
+    importante: $('input[name=av-tipo]:checked').value === 'importante',
+    para: $('#av-todos').checked ? null : $$('.av-p:checked').map((c) => c.value),
+  };
+}
+$('#av-previa').onclick = () => {
+  const d = avisoDoFormulario();
+  if (!d.titulo) { $('#av-erro').textContent = 'Escreva um título para ver a prévia.'; return; }
+  $('#av-erro').textContent = '';
+  const agora = new Date(Date.now() - 3 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16);
+  const a = { id: 0, titulo: d.titulo, mensagem: d.mensagem, importante: d.importante, de: est.usuario.nome, criado_em: agora };
+  if (d.importante) abrirTrava([a], true);
+  else modal(`<h2>Prévia do sininho</h2><div class="painel" style="padding:0;margin:8px 0 14px"><div class="av-item novo"><b>${esc(a.titulo)}</b>${a.mensagem ? `<div class="av-msg">${esc(a.mensagem)}</div>` : ''}<div class="av-meta">de ${esc(a.de)} · agora</div></div></div><div class="modal-acoes"><button class="btn btn-prim" data-a="ok">Fechar</button></div>`, (m) => { $('[data-a=ok]', m).onclick = () => fecharModal(null); });
+};
+$('#av-enviar').onclick = async () => {
+  const d = avisoDoFormulario();
+  $('#av-erro').textContent = '';
+  if (!d.titulo) { $('#av-erro').textContent = 'Escreva um título para o aviso.'; return; }
+  if (d.para && !d.para.length) { $('#av-erro').textContent = 'Escolha pelo menos uma pessoa (ou marque "Todos").'; return; }
+  const b = $('#av-enviar'); b.disabled = true;
+  try {
+    const r = await api('enviarAviso', d);
+    toast(`Aviso enviado${r.pessoas ? ' para ' + r.pessoas + ' pessoa(s)' : ''}.${d.importante ? ' A tela delas trava até confirmarem.' : ''}`, 'ok');
+    $('#av-titulo').value = ''; $('#av-msg').value = '';
+    carregarAvisosAdmin();
+  } catch (e) { $('#av-erro').textContent = e.message; } finally { b.disabled = false; }
+};
+
 async function carregarLogs() {
   try {
     const r = await api('logs', { usuario: $('#lg-usuario').value, evento: $('#lg-evento').value, pagina: est.logPag });
