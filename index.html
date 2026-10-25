@@ -319,9 +319,44 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
   .relogio span { display: none; }
   .kpi strong { font-size: 1.5rem; }
 }
+/* ---------- resumo de 1 página para imprimir / salvar em PDF ---------- */
+#relatorio { display: none; }
+.rel { width: 190mm; color: #1d1c1a; background: #fff; font: 8.6pt/1.35 Inter, system-ui, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rel * { box-sizing: border-box; }
+.rel .r-cab { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #2f7d6d; padding-bottom: 6px; margin-bottom: 8px; }
+.rel .r-cab h1 { font-size: 16pt; margin: 0; line-height: 1.1; }
+.rel .r-cab .r-marca { font-size: 8pt; color: #2f7d6d; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.rel .r-cab .r-meta { text-align: right; font-size: 7.5pt; color: #666; }
+.rel .r-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+.rel .r-kpi { border: 1px solid #ddd; border-radius: 6px; padding: 5px 8px; }
+.rel .r-kpi.lucro { background: #e2efea; border-color: #b9d8cd; }
+.rel .r-kpi.lucro.neg { background: #f7e4df; border-color: #ebc4bb; }
+.rel .r-kpi .r-rot { font-size: 7.2pt; color: #666; }
+.rel .r-kpi .r-val { font-size: 12.5pt; font-weight: 800; white-space: nowrap; }
+.rel .r-kpi .r-sub { font-size: 7pt; color: #555; }
+.rel .r-up { color: #1d7a3a; } .rel .r-down { color: #b3412f; }
+.rel .r-pos { color: #1d7a3a !important; } .rel .r-neg { color: #b3412f !important; }
+.rel .r-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.rel h2 { font-size: 9pt; margin: 0 0 3px; padding-bottom: 2px; border-bottom: 1px solid #ccc; text-transform: uppercase; letter-spacing: .03em; color: #2f7d6d; }
+.rel table { width: 100%; border-collapse: collapse; }
+.rel td, .rel th { padding: 1.6px 3px; border-bottom: 1px solid #eee; vertical-align: top; }
+.rel th { font-size: 7pt; color: #666; text-align: left; font-weight: 600; }
+.rel .v { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rel tr.t td { font-weight: 800; border-top: 1px solid #999; }
+.rel tr.s td:first-child { padding-left: 10px; color: #444; }
+.rel tr.f td { color: #888; }
+.rel .r-dias { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rel .r-dias td, .rel .r-dias th { font-size: 7.4pt; padding: 1.2px 3px; }
+.rel .r-ind td { font-size: 8pt; }
+.rel .r-alerta { color: #b3412f; font-weight: 600; }
+.rel .r-rodape { margin-top: 6px; font-size: 6.8pt; color: #888; display: flex; justify-content: space-between; }
+@page { size: A4 portrait; margin: 10mm; }
 @media print {
-  .topo, .lateral, .btn, .avisos, .filtros, .abas, .toasts, .cozinha { display: none !important; }
-  body { background: #fff; } .painel { box-shadow: none; }
+  html, body { background: #fff !important; }
+  body.imprimindo > *:not(#relatorio) { display: none !important; }
+  body.imprimindo #relatorio { display: block !important; }
+  body:not(.imprimindo) .topo, body:not(.imprimindo) .lateral, body:not(.imprimindo) .btn, body:not(.imprimindo) .avisos,
+  body:not(.imprimindo) .filtros, body:not(.imprimindo) .abas, body:not(.imprimindo) .toasts, body:not(.imprimindo) .cozinha { display: none !important; }
 }
 </style>
 </head>
@@ -384,7 +419,7 @@ table.tab { width: 100%; border-collapse: collapse; font-size: .92rem; }
     <section id="pag-painel">
       <div class="cab-pag">
         <div><h2 id="p-titulo">Painel</h2><div class="suave" id="p-sub"></div></div>
-        <div class="linha"><button class="btn btn-claro" id="b-exportar">⤓ Baixar mês em Excel</button><button class="btn btn-claro" onclick="window.print()">🖨️ Imprimir</button></div>
+        <div class="linha"><button class="btn btn-claro" id="b-exportar">⤓ Baixar mês em Excel</button><button class="btn btn-claro" id="b-imprimir">🖨️ Imprimir</button></div>
       </div>
       <div class="avisos" id="p-avisos"></div>
       <div class="cmp-ctl">📈 Comparar com
@@ -2042,6 +2077,104 @@ function desenharPainel() {
 
   desenharGraficos();
 }
+
+// ------------------------------------------------------------- resumo de 1 página (Imprimir / salvar PDF)
+function montarRelatorio() {
+  const r = est.resumo, t = r.totais;
+  const pct = (a, b) => (b ? (a / b * 100).toFixed(1).replace('.', ',') + '%' : '—');
+  const hoje = est.inicio ? est.inicio.hoje : '';
+  const emAndamento = hoje && hoje.slice(0, 7) === r.mes;
+  // comparação com o mês escolhido no Painel (até o mesmo dia, se o mês ainda não acabou)
+  const comp = est.comp && est.comp.dados && est.comp.mes ? est.comp : null;
+  const corte = comp ? diaCorte() : null;
+  const a = totaisAte(r, corte), b = comp ? totaisAte(comp.dados, corte) : null;
+  const delta = (va, vb, subirEhBom) => {
+    if (!b) return '';
+    const p = varPct(va, vb);
+    if (p === null) return '';
+    const bom = subirEhBom ? p >= 0 : p <= 0;
+    return `<div class="r-sub ${bom ? 'r-up' : 'r-down'}">${fmtPct(p)} vs ${mesCurto(comp.mes)}${corte ? ' (até dia ' + corte + ')' : ''}</div>`;
+  };
+  const maqTotal = t.brutoTotal - t.bruto.dinheiro;
+  const kpis = `<div class="r-kpis">
+    <div class="r-kpi"><div class="r-rot">Faturamento bruto</div><div class="r-val">${fmt(t.brutoTotal)}</div><div class="r-sub">dinheiro ${fmt(t.bruto.dinheiro)} · maquininhas ${fmt(maqTotal)}</div>${delta(a.brutoTotal, b && b.brutoTotal, true)}</div>
+    <div class="r-kpi"><div class="r-rot">Taxas das maquininhas</div><div class="r-val">${fmt(t.taxasTotal)}</div><div class="r-sub">${pct(t.taxasTotal, maqTotal)} das vendas em maquininha</div>${delta(a.taxas, b && b.taxas, false)}</div>
+    <div class="r-kpi"><div class="r-rot">Custos</div><div class="r-val">${fmt(t.custos)}</div><div class="r-sub">${pct(t.custos, t.brutoTotal)} do faturamento</div>${delta(a.custos, b && b.custos, false)}</div>
+    <div class="r-kpi lucro ${t.lucroLiquido < 0 ? 'neg' : ''}"><div class="r-rot">Lucro líquido</div><div class="r-val ${t.lucroLiquido < 0 ? 'r-neg' : 'r-pos'}">${fmt(t.lucroLiquido)}</div><div class="r-sub">margem de ${pct(t.lucroLiquido, t.brutoTotal)}</div>${delta(a.lucro, b && b.lucro, true)}</div>
+  </div>`;
+  const linha = (n, v, cls, cor) => `<tr class="${cls || ''}"><td>${esc(n)}</td><td class="v ${cor && v !== null && v !== undefined ? (v < 0 ? 'r-neg' : 'r-pos') : ''}">${fmt(v)}</td></tr>`;
+  const dre = `<h2>Resultado do mês</h2><table>
+    ${linha('Vendas brutas', t.brutoTotal, 't')}${linha('(−) Taxas das maquininhas', t.taxasTotal)}${linha('(=) Receita líquida', t.liquido, 't')}
+    ${linha('(−) Custos', t.custos)}${linha('(=) Lucro líquido', t.lucroLiquido, 't', true)}
+    ${t.retiradas ? linha('(−) Retirada dos sócios', t.retiradas) : ''}
+    ${linha('Saldo do mês anterior', t.saldoAnterior)}${linha('Saldo final do mês', t.saldoFinal, 't', true)}</table>`;
+  const formas = `<h2>Vendas por forma de pagamento</h2><table><tr><th>Forma</th><th class="v">Bruto</th><th class="v">%</th><th class="v">Taxas</th></tr>
+    ${FORMAS.filter((f) => t.bruto[f]).sort((x, y) => t.bruto[y] - t.bruto[x]).map((f) => `<tr><td>${NOME_FORMA[f]}</td><td class="v">${fmt(t.bruto[f])}</td><td class="v">${pct(t.bruto[f], t.brutoTotal)}</td><td class="v">${f === 'dinheiro' ? '—' : fmt(t.taxas[f])}</td></tr>`).join('') || '<tr><td colspan="4">Sem vendas.</td></tr>'}
+    <tr class="t"><td>Total</td><td class="v">${fmt(t.brutoTotal)}</td><td class="v">100%</td><td class="v">${fmt(t.taxasTotal)}</td></tr></table>`;
+  const cats = Object.entries(t.custosPorCategoria).sort((x, y) => y[1] - x[1]);
+  const fora = Object.entries(t.foraPorCategoria).sort((x, y) => y[1] - x[1]);
+  const custos = `<h2>Custos por categoria</h2><table><tr><th>Categoria</th><th class="v">Valor</th><th class="v">% fat.</th></tr>
+    ${cats.map(([c, v]) => `<tr><td>${esc(c)}</td><td class="v">${fmt(v)}</td><td class="v">${pct(v, t.brutoTotal)}</td></tr>`).join('') || '<tr><td colspan="3">Sem custos.</td></tr>'}
+    <tr class="t"><td>Total de custos</td><td class="v">${fmt(t.custos)}</td><td class="v">${pct(t.custos, t.brutoTotal)}</td></tr>
+    ${fora.map(([c, v]) => `<tr class="f"><td>${esc(c)} (fora do resultado)</td><td class="v">${fmt(v)}</td><td></td></tr>`).join('')}</table>`;
+  const comVenda = r.dias.filter((d) => d.totalBruto);
+  const melhor = comVenda.slice().sort((x, y) => y.totalBruto - x.totalBruto)[0];
+  const pior = comVenda.slice().sort((x, y) => x.totalBruto - y.totalBruto)[0];
+  const sem = (r.porDiaSemana || []).filter((x) => x.dias).map((x) => ({ dia: x.dia, media: x.bruto / x.dias })).sort((x, y) => y.media - x.media);
+  const ind = `<h2>Indicadores</h2><table class="r-ind">
+    <tr><td>Dias com venda</td><td class="v">${comVenda.length}</td></tr>
+    <tr><td>Média de vendas por dia</td><td class="v">${fmt(comVenda.length ? Math.round(t.brutoTotal / comVenda.length) : 0)}</td></tr>
+    ${melhor ? `<tr><td>Melhor dia</td><td class="v">${dataBR(melhor.data).slice(0, 5)} (${melhor.diaSemana}) · ${fmt(melhor.totalBruto)}</td></tr>` : ''}
+    ${pior && pior !== melhor ? `<tr><td>Dia mais fraco</td><td class="v">${dataBR(pior.data).slice(0, 5)} (${pior.diaSemana}) · ${fmt(pior.totalBruto)}</td></tr>` : ''}
+    ${sem.length ? `<tr><td>Dia da semana mais forte</td><td class="v">${sem[0].dia} · média ${fmt(Math.round(sem[0].media))}</td></tr>` : ''}
+    ${r.avisos.aClassificar ? `<tr><td class="r-alerta">Despesas sem categoria</td><td class="v r-alerta">${r.avisos.aClassificar}</td></tr>` : ''}
+    ${r.avisos.diasComDiferenca ? `<tr><td class="r-alerta">Dias com diferença PDV × maquininhas</td><td class="v r-alerta">${r.avisos.diasComDiferenca}</td></tr>` : ''}
+  </table>`;
+  // vendas por dia da semana (segunda a domingo); o mais forte em destaque
+  const ORDEM_SEM = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+  const ps = (r.porDiaSemana || []).filter((x) => x.dias).sort((x, y) => ORDEM_SEM.indexOf(x.dia) - ORDEM_SEM.indexOf(y.dia));
+  const maiorMedia = Math.max(0, ...ps.map((x) => x.bruto / x.dias));
+  const semana = ps.length ? `<h2 style="margin-top:8px">Vendas por dia da semana</h2><table><tr><th>Dia</th><th class="v">Dias</th><th class="v">Vendas</th><th class="v">Média/dia</th><th class="v">%</th></tr>
+    ${ps.map((x) => { const forte = x.bruto / x.dias === maiorMedia; return `<tr${forte ? ' style="font-weight:700"' : ''}><td>${x.dia.charAt(0).toUpperCase() + x.dia.slice(1)}${forte ? ' ★' : ''}</td><td class="v">${x.dias}</td><td class="v">${fmt(x.bruto)}</td><td class="v">${fmt(Math.round(x.bruto / x.dias))}</td><td class="v">${pct(x.bruto, t.brutoTotal)}</td></tr>`; }).join('')}</table>` : '';
+  // dia a dia em duas colunas
+  const cabDias = '<tr><th>Dia</th><th class="v">Vendas</th><th class="v">Taxas</th><th class="v">Despesas</th><th class="v">Resultado</th></tr>';
+  const linDia = (d) => `<tr><td>${dataBR(d.data).slice(0, 5)} <span style="color:#888">${d.diaSemana.slice(0, 3)}</span></td><td class="v">${fmt(d.totalBruto)}</td><td class="v">${fmt(d.taxas)}</td><td class="v">${d.despesas ? fmt(d.despesas) : '—'}</td><td class="v">${fmt(d.totalBruto - d.taxas - d.despesas)}</td></tr>`;
+  const metade = Math.ceil(r.dias.length / 2);
+  const somaDias = (fn) => r.dias.reduce((acc, d) => acc + fn(d), 0);
+  const totDias = `<tr class="t"><td>Total</td><td class="v">${fmt(somaDias((d) => d.totalBruto))}</td><td class="v">${fmt(somaDias((d) => d.taxas))}</td><td class="v">${fmt(somaDias((d) => d.despesas))}</td><td class="v">${fmt(somaDias((d) => d.totalBruto - d.taxas - d.despesas))}</td></tr>`;
+  const dias = r.dias.length ? `<h2>Dia a dia</h2><div class="r-dias">
+    <table>${cabDias}${r.dias.slice(0, metade).map(linDia).join('')}</table>
+    <table>${cabDias}${r.dias.slice(metade).map(linDia).join('')}${totDias}</table></div>` : '';
+  const agora = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
+  const titulo = nomeMes(r.mes);
+  return `<div class="rel">
+    <div class="r-cab"><div><div class="r-marca">Restaurante Madora · Resumo financeiro</div><h1>${esc(titulo.charAt(0).toUpperCase() + titulo.slice(1))}</h1></div>
+      <div class="r-meta">${emAndamento ? `<b>Mês em andamento</b> (dados até ${dataBR(hoje).slice(0, 5)})<br>` : ''}Gerado em ${agora}${est.usuario ? ' por ' + esc(est.usuario.nome) : ''}</div></div>
+    ${kpis}
+    <div class="r-grade"><div>${dre}</div><div>${formas}</div></div>
+    <div class="r-grade"><div>${custos}</div><div>${ind}${semana}</div></div>
+    ${dias}
+    <div class="r-rodape"><span>Financeiro Madora</span><span>Lucro líquido = vendas − taxas das maquininhas − custos. Retiradas e transferências não entram no resultado.</span></div>
+  </div>`;
+}
+function imprimirResumo() {
+  if (!est.resumo) { toast('Abra um mês primeiro.', 'erro'); return; }
+  let box = $('#relatorio');
+  if (!box) { box = document.createElement('div'); box.id = 'relatorio'; document.body.appendChild(box); }
+  box.innerHTML = montarRelatorio();
+  // mede fora da tela e, se passar de 1 página A4 (277 mm úteis), diminui até caber
+  const rel = $('.rel', box);
+  box.style.cssText = 'display:block;position:absolute;left:-10000px;top:0';
+  const mm = rel.getBoundingClientRect().width / 190;
+  const altura = rel.scrollHeight / mm;
+  box.style.cssText = '';
+  rel.style.zoom = altura > 275 ? String(Math.max(0.55, 275 / altura)) : '';
+  document.body.classList.add('imprimindo');
+  const fim = () => { document.body.classList.remove('imprimindo'); window.removeEventListener('afterprint', fim); };
+  window.addEventListener('afterprint', fim);
+  setTimeout(() => window.print(), 50);
+}
+$('#b-imprimir').onclick = imprimirResumo;
 
 function editarSaldo() {
   const t = est.resumo.totais;
